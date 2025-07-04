@@ -1,0 +1,11 @@
+{
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.flake8Enabled": false,
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "warning"
+    },
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit"
+    }
+}
