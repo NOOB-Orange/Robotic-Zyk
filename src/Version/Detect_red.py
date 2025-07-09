@@ -27,7 +27,6 @@ def detect_red_target(frame):
             return (cx, cy)
     return None
 
-
 # 测试用主函数
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)

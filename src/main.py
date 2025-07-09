@@ -1,7 +1,6 @@
 import cv2
-from Detect_red import detect_red_target
-from robotic.arm_control_move import move_rotate_90
-
+from Version.Detect_red import detect_red_target
+from Robotic.arm_control_move import move_rotate_90
 
 def main():
     cap = cv2.VideoCapture(0)

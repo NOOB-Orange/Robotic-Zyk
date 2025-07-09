@@ -18,8 +18,8 @@ def send_command(ser, cmd_list):
     print(f"[INFO] 已发送: {cmd.hex(' ')}")
     time.sleep(0.05)
 
-# 移动机械臂函数
-def move_robot_arm():
+# ✅ 改函数名为 move_rotate_90
+def move_rotate_90():
     with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1) as ser:
         time.sleep(2)
 
@@ -53,5 +53,5 @@ def move_robot_arm():
         send_command(ser, a)
 
 if __name__ == "__main__":
-    move_robot_arm()
+    move_rotate_90()
     print("[INFO] 程序结束")
