@@ -18,7 +18,7 @@ def detect_red_target(frame):
     if contours:
         cnt = max(contours, key=cv2.contourArea)
         area = cv2.contourArea(cnt)
-        if area > 3000:
+        if area > 5000:
             x, y, w, h = cv2.boundingRect(cnt)
             cx = x + w // 2
             cy = y + h // 2
