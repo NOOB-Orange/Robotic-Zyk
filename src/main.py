@@ -1,85 +1,110 @@
-# main.py
 import cv2
+import threading
+import time
 from Version.Detect_red import detect_red_target
-from Robotic.arm_control_move import move_with_offset, initialize_serial, move_stop
+from Robotic.arm_control_move import move_with_offset, initialize_serial, move_stop, query_current_position
 
-# 1. 摄像头中心坐标
+# 摄像头中心
 FRAME_CENTER_X = 320
 FRAME_CENTER_Y = 240
 
-# 2. 机械臂初始坐标（建议你根据实际位置调整）
-current_x = 344.1
-current_y = 0.7
-current_z = 417.4  # 固定高度，防止撞到工作台
+# 固定Z轴高度
+current_z = 417.4
 
-# 3. 灵敏度与死区
-OFFSET_SCALE = 0.05  # 每像素偏移对应的坐标变化
-DEAD_ZONE = 2.0      # 死区大小，防止抖动
+# 控制参数
+OFFSET_SCALE = 20
+DEAD_ZONE = 0.5
+MAX_STEP = 300
+MOVE_INTERVAL = 3
 
-# 4. 限定范围
-X_MIN, X_MAX = 340.0, 350.0
-Y_MIN, Y_MAX = -10.0, 10.0
+# 🚨 安全范围（扩大 X轴 范围！）
+X_MIN, X_MAX = 300.0, 380.0
+Y_MIN, Y_MAX = -30.0, 30.0
 
+# 控制线程锁和退出标志
+move_lock = threading.Lock()
+exit_flag = False  # ✅ 程序退出标志
 
 def main():
-    global current_x, current_y
+    global exit_flag
+    frame_count = 0
 
-    # 打开摄像头
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    # 初始化串口
     ser = initialize_serial()
-
-    print("[提示] 确保机械臂前方无障碍物。按 'q' 键随时退出程序。")
+    print("[提示] 确保机械臂前方无障碍物。按 'q' 键退出。")
 
     try:
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("[警告] 无法读取摄像头画面")
+                print("[警告] 无法读取摄像头")
                 break
 
-            result = detect_red_target(frame)
+            frame_count += 1
 
+            result = detect_red_target(frame)
             if result is not None:
                 cx, cy = result
+                print(f"[DEBUG] 检测到红点: {cx}, {cy}")
 
                 dx = (cx - FRAME_CENTER_X) * OFFSET_SCALE
                 dy = (cy - FRAME_CENTER_Y) * OFFSET_SCALE
 
-                print(f"[INFO] 红色坐标: ({cx}, {cy}), 偏移: dx={dx:.2f}, dy={dy:.2f}")
+                dx = max(min(dx, MAX_STEP), -MAX_STEP)
+                dy = max(min(dy, MAX_STEP), -MAX_STEP)
 
-                # 死区判断
+                print(f"[INFO] 偏移 dx={dx:.2f}, dy={dy:.2f}")
+
                 if abs(dx) < DEAD_ZONE and abs(dy) < DEAD_ZONE:
-                    continue
+                    print("[DEBUG] 死区内，忽略移动")
+                else:
+                    if frame_count % MOVE_INTERVAL == 0:
+                        try:
+                            x_now, y_now, _ = query_current_position(ser)
 
-                # ✅ 方向修正：红点向右，机械臂向右
-                current_x += dx
-                current_y += dy
+                            target_x = max(min(x_now + dx, X_MAX), X_MIN)
+                            target_y = max(min(y_now + dy, Y_MAX), Y_MIN)
 
-                # 限制在安全工作范围
-                current_x = max(min(current_x, X_MAX), X_MIN)
-                current_y = max(min(current_y, Y_MAX), Y_MIN)
+                            print(f"[DEBUG] 当前: X={x_now:.2f}, Y={y_now:.2f}")
+                            print(f"[DEBUG] 目标: X={target_x:.2f}, Y={target_y:.2f}")
 
-                # 执行移动
-                move_with_offset(current_x, current_y, current_z, ser)
+                            def threaded_move(x, y, z):
+                                if exit_flag:
+                                    print("[THREAD] ❌ 程序退出中，跳过移动")
+                                    return
+                                print(f"[THREAD] 🚀 启动移动线程: X={x:.2f}, Y={y:.2f}, Z={z:.2f}")
+                                with move_lock:
+                                    if not exit_flag:
+                                        move_with_offset(x, y, z, ser)
 
-            # 显示检测画面
+                            threading.Thread(target=threaded_move, args=(target_x, target_y, current_z)).start()
+
+                        except Exception as e:
+                            print(f"[WARN] 读取坐标失败，跳过一次移动。{e}")
+
+            # 显示中心辅助线
+            cv2.line(frame, (FRAME_CENTER_X - 50, FRAME_CENTER_Y), (FRAME_CENTER_X + 50, FRAME_CENTER_Y), (0, 255, 0), 1)
+            cv2.line(frame, (FRAME_CENTER_X, FRAME_CENTER_Y - 50), (FRAME_CENTER_X, FRAME_CENTER_Y + 50), (0, 255, 0), 1)
+
             cv2.imshow("Red Detection", frame)
 
-            # 退出
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
     finally:
+        print("[提示] 正在退出，终止线程中...")
+        exit_flag = True  # ✅ 设退出标志，禁止新动作
+
+        time.sleep(0.5)   # 给线程时间安全退出
+
+        move_stop(ser)    # ✅ 强制停止指令
         cap.release()
-        move_stop(ser)
         ser.close()
         cv2.destroyAllWindows()
-        print("[提示] 已安全关闭程序。")
-
+        print("[提示] 程序已关闭，机械臂停止。")
 
 if __name__ == "__main__":
     main()

@@ -56,7 +56,6 @@ def limit_position(x, y, z):
     z = max(Z_MIN, min(Z_MAX, z))
     return x, y, z
 
-
 def move_with_offset(target_x, target_y, target_z, ser):
     global current_x, current_y, current_z
 
@@ -78,7 +77,7 @@ def move_with_offset(target_x, target_y, target_z, ser):
     joint_values = [current_x, current_y, current_z, 0.0, 0.0, 0.0]
     pmw = 1500.0
     at = 100.0
-    spd = 30.0
+    spd = 300.0  # ✅ 设置为更快的速度
 
     idx = 3
     for val in joint_values:
@@ -92,6 +91,13 @@ def move_with_offset(target_x, target_y, target_z, ser):
     a[47] = 252
 
     send_command(ser, a)
+
+    # ✅ 增加延时后读取当前坐标反馈
+    time.sleep(1.0)
+    position = query_current_position(ser)
+    if position:
+        print(f"[反馈] 📍 当前位置: X={position[0]:.2f}, Y={position[1]:.2f}, Z={position[2]:.2f}")
+
 
 
 # 查询实时坐标
