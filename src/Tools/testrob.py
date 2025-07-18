@@ -20,7 +20,7 @@ FRAME_CENTER_Y = 240
 
 # 灵敏度与控制参数
 ANGLE_SCALE = 0.15
-ANGLE_SPEED = 50.0  # 提升速度
+ANGLE_SPEED = 90.0  # 提升速度
 DEAD_ZONE = 1.0
 MIN_ANGLE_DELTA = 0.3
 MAX_ANGLE_DELTA = 10.0  # 限幅，避免飞出
